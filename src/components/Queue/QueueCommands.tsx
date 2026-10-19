@@ -21,7 +21,8 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioResult, setAudioResult] = useState<string | null>(null)
   const chunks = useRef<Blob[]>([])
-  // Remove all chat-related state, handlers, and the Dialog overlay from this file.
+  const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+  const cmdKey = isMac ? "⌘" : "Ctrl"
 
   useEffect(() => {
     let tooltipHeight = 0
@@ -85,7 +86,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           <span className="text-[11px] leading-none">Show/Hide</span>
           <div className="flex gap-1">
             <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
-              ⌘
+              {cmdKey}
             </button>
             <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
               B
@@ -102,7 +103,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             <span className="text-[11px] leading-none">Solve</span>
             <div className="flex gap-1">
               <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
-                ⌘
+                {cmdKey}
               </button>
               <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
                 ↵
@@ -177,7 +178,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         <span className="truncate">Toggle Window</span>
                         <div className="flex gap-1 flex-shrink-0">
                           <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ⌘
+                            {cmdKey}
                           </span>
                           <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
                             B
@@ -194,7 +195,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         <span className="truncate">Take Screenshot</span>
                         <div className="flex gap-1 flex-shrink-0">
                           <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ⌘
+                            {cmdKey}
                           </span>
                           <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
                             H
@@ -214,7 +215,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         <span className="truncate">Solve Problem</span>
                         <div className="flex gap-1 flex-shrink-0">
                           <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                            ⌘
+                            {cmdKey}
                           </span>
                           <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
                             ↵
@@ -223,6 +224,24 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                       </div>
                       <p className="text-[10px] leading-relaxed text-white/70 truncate">
                         Generate a solution based on the current problem.
+                      </p>
+                    </div>
+
+                    {/* Quit Command */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">Quit Application</span>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            {cmdKey}
+                          </span>
+                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            Q
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
+                        Quit the application completely.
                       </p>
                     </div>
                   </div>
@@ -235,10 +254,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         {/* Separator */}
         <div className="mx-2 h-4 w-px bg-white/20" />
 
-        {/* Sign Out Button - Moved to end */}
+        {/* Quit Button */}
         <button
-          className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer"
-          title="Sign Out"
+          className="text-red-400 hover:text-red-300 transition-colors hover:cursor-pointer flex items-center"
+          title={`Quit Application (${cmdKey}+Q)`}
           onClick={() => window.electronAPI.quitApp()}
         >
           <IoLogOutOutline className="w-4 h-4" />

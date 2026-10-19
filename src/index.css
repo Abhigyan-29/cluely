@@ -132,20 +132,20 @@ button, input, select, textarea, .interactive {
 
 /* Thin bar variant of liquid glass - for command bar */
 .liquid-glass-bar {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(20, 20, 25, 0.85);
   backdrop-filter: blur(16px) saturate(180%) brightness(120%);
   -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(120%);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 1rem;
   box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
   position: relative;
   overflow: hidden;
-  height: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
 }
 
 /* Shimmer effect for bar variant */

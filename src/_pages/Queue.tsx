@@ -117,9 +117,10 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
 
   useEffect(() => {
     const updateDimensions = () => {
-      if (contentRef.current) {
-        let contentHeight = contentRef.current.scrollHeight
-        const contentWidth = contentRef.current.scrollWidth
+      const el = barRef.current
+      if (el) {
+        let contentHeight = el.scrollHeight
+        const contentWidth = el.scrollWidth
         if (isTooltipVisible) {
           contentHeight += tooltipHeight
         }
@@ -131,8 +132,8 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
     }
 
     const resizeObserver = new ResizeObserver(updateDimensions)
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current)
+    if (barRef.current) {
+      resizeObserver.observe(barRef.current)
     }
     updateDimensions()
 

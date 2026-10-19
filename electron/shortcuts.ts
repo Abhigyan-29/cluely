@@ -80,20 +80,17 @@ export class ShortcutsHelper {
 
     globalShortcut.register("CommandOrControl+B", () => {
       this.appState.toggleMainWindow()
-      // If window exists and we're showing it, bring it to front
       const mainWindow = this.appState.getMainWindow()
-      if (mainWindow && !this.appState.isVisible()) {
-        // Force the window to the front on macOS
-        if (process.platform === "darwin") {
-          mainWindow.setAlwaysOnTop(true, "normal")
-          // Reset alwaysOnTop after a brief delay
-          setTimeout(() => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.setAlwaysOnTop(true, "floating")
-            }
-          }, 100)
-        }
+      if (mainWindow && this.appState.isVisible()) {
+        mainWindow.focus()
+        mainWindow.setAlwaysOnTop(true)
       }
+    })
+
+    // Global shortcut to quit application
+    globalShortcut.register("CommandOrControl+Q", () => {
+      console.log("Command/Ctrl + Q pressed. Quitting application...")
+      app.quit()
     })
 
     // Unregister shortcuts when quitting

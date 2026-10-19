@@ -6,6 +6,16 @@ interface OllamaResponse {
   done: boolean
 }
 
+function getImageMimeType(imagePath: string): string {
+  switch (imagePath.toLowerCase().split("?")[0].split(".").pop()) {
+    case "jpg":
+    case "jpeg": return "image/jpeg"
+    case "webp": return "image/webp"
+    case "gif": return "image/gif"
+    default: return "image/png"
+  }
+}
+
 export class LLMHelper {
   private model: GenerativeModel | null = null
   private readonly systemPrompt = `You are Wingman AI, a helpful, proactive assistant for any kind of problem or situation (not just coding). For any user input, analyze the situation, provide a clear problem statement, relevant context, and suggest several possible responses or actions the user could take next. Always explain your reasoning. Present your suggestions as a list of options or next steps.`
@@ -28,7 +38,11 @@ export class LLMHelper {
       this.model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
       console.log("[LLMHelper] Using Google Gemini")
     } else {
-      throw new Error("Either provide Gemini API key or enable Ollama mode")
+      this.useOllama = true
+      this.ollamaUrl = ollamaUrl || "http://localhost:11434"
+      this.ollamaModel = ollamaModel || "qwen3.5:4b"
+      console.log(`[LLMHelper] Defaulting to Ollama with model: ${this.ollamaModel}`)
+      this.initializeOllamaModel()
     }
   }
 
@@ -37,9 +51,25 @@ export class LLMHelper {
     return {
       inlineData: {
         data: imageData.toString("base64"),
-        mimeType: "image/png"
+        mimeType: getImageMimeType(imagePath)
       }
     }
+  }
+
+  private async generateTextWithImages(prompt: string, imageParts: Array<{ inlineData: { data: string; mimeType: string } }>): Promise<string> {
+    if (this.useOllama) {
+      if (!this.ollamaModel) {
+        throw new Error("No Ollama model is configured. Select an available Ollama model and try again.")
+      }
+      return this.callOllama(prompt, imageParts.map(part => part.inlineData.data))
+    }
+
+    if (!this.model) {
+      throw new Error("No Gemini model is configured. Add a Gemini API key or select Ollama and try again.")
+    }
+    const result = await this.model.generateContent([prompt, ...imageParts])
+    const response = await result.response
+    return response.text()
   }
 
   private cleanJsonResponse(text: string): string {
@@ -50,7 +80,7 @@ export class LLMHelper {
     return text;
   }
 
-  private async callOllama(prompt: string): Promise<string> {
+  private async callOllama(prompt: string, images?: string[]): Promise<string> {
     try {
       const response = await fetch(`${this.ollamaUrl}/api/generate`, {
         method: 'POST',
@@ -60,6 +90,7 @@ export class LLMHelper {
         body: JSON.stringify({
           model: this.ollamaModel,
           prompt: prompt,
+          ...(images?.length ? { images } : {}),
           stream: false,
           options: {
             temperature: 0.7,
@@ -76,7 +107,8 @@ export class LLMHelper {
       return data.response
     } catch (error) {
       console.error("[LLMHelper] Error calling Ollama:", error)
-      throw new Error(`Failed to connect to Ollama: ${error.message}. Make sure Ollama is running on ${this.ollamaUrl}`)
+      const detail = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to connect to Ollama: ${detail}. Make sure Ollama is running on ${this.ollamaUrl}`)
     }
   }
 
@@ -107,7 +139,7 @@ export class LLMHelper {
       const testResult = await this.callOllama("Hello")
       console.log(`[LLMHelper] Successfully initialized with model: ${this.ollamaModel}`)
     } catch (error) {
-      console.error(`[LLMHelper] Failed to initialize Ollama model: ${error.message}`)
+      console.error(`[LLMHelper] Failed to initialize Ollama model: ${error instanceof Error ? error.message : String(error)}`)
       // Try to use first available model as fallback
       try {
         const models = await this.getOllamaModels()
@@ -116,7 +148,7 @@ export class LLMHelper {
           console.log(`[LLMHelper] Fallback to: ${this.ollamaModel}`)
         }
       } catch (fallbackError) {
-        console.error(`[LLMHelper] Fallback also failed: ${fallbackError.message}`)
+        console.error(`[LLMHelper] Fallback also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`)
       }
     }
   }
@@ -132,9 +164,8 @@ export class LLMHelper {
   "reasoning": "Explanation of why these suggestions are appropriate."
 }\nImportant: Return ONLY the JSON object, without any markdown formatting or code blocks.`
 
-      const result = await this.model.generateContent([prompt, ...imageParts])
-      const response = await result.response
-      const text = this.cleanJsonResponse(response.text())
+      const responseText = await this.generateTextWithImages(prompt, imageParts)
+      const text = this.cleanJsonResponse(responseText)
       return JSON.parse(text)
     } catch (error) {
       console.error("Error extracting problem from images:", error)
@@ -155,6 +186,9 @@ export class LLMHelper {
 
     console.log("[LLMHelper] Calling Gemini LLM for solution...");
     try {
+      if (!this.model) {
+        throw new Error("No Gemini model configured");
+      }
       const result = await this.model.generateContent(prompt)
       console.log("[LLMHelper] Gemini LLM returned result.");
       const response = await result.response
@@ -182,9 +216,8 @@ export class LLMHelper {
   }
 }\nImportant: Return ONLY the JSON object, without any markdown formatting or code blocks.`
 
-      const result = await this.model.generateContent([prompt, ...imageParts])
-      const response = await result.response
-      const text = this.cleanJsonResponse(response.text())
+      const responseText = await this.generateTextWithImages(prompt, imageParts)
+      const text = this.cleanJsonResponse(responseText)
       const parsed = JSON.parse(text)
       console.log("[LLMHelper] Parsed debug LLM response:", parsed)
       return parsed
@@ -204,6 +237,9 @@ export class LLMHelper {
         }
       };
       const prompt = `${this.systemPrompt}\n\nDescribe this audio clip in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the audio. Do not return a structured JSON object, just answer naturally as you would to a user.`;
+      if (!this.model) {
+        throw new Error("No Gemini model configured");
+      }
       const result = await this.model.generateContent([prompt, audioPart]);
       const response = await result.response;
       const text = response.text();
@@ -223,6 +259,9 @@ export class LLMHelper {
         }
       };
       const prompt = `${this.systemPrompt}\n\nDescribe this audio clip in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the audio. Do not return a structured JSON object, just answer naturally as you would to a user and be concise.`;
+      if (!this.model) {
+        throw new Error("No Gemini model configured");
+      }
       const result = await this.model.generateContent([prompt, audioPart]);
       const response = await result.response;
       const text = response.text();
@@ -236,20 +275,21 @@ export class LLMHelper {
   public async analyzeImageFile(imagePath: string) {
     try {
       const imageData = await fs.promises.readFile(imagePath);
+      const imageBase64 = imageData.toString("base64")
+      const mimeType = getImageMimeType(imagePath)
+      const prompt = `${this.systemPrompt}\n\nDescribe the content of this image in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the image. Do not return a structured JSON object; answer naturally and briefly.`
+
       const imagePart = {
         inlineData: {
-          data: imageData.toString("base64"),
-          mimeType: "image/png"
+          data: imageBase64,
+          mimeType
         }
       };
-      const prompt = `${this.systemPrompt}\n\nDescribe the content of this image in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the image. Do not return a structured JSON object, just answer naturally as you would to a user. Be concise and brief.`;
-      const result = await this.model.generateContent([prompt, imagePart]);
-      const response = await result.response;
-      const text = response.text();
+      const text = await this.generateTextWithImages(prompt, [imagePart]);
       return { text, timestamp: Date.now() };
     } catch (error) {
       console.error("Error analyzing image file:", error);
-      throw error;
+      throw new Error(`Failed to analyze image: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -354,7 +394,7 @@ export class LLMHelper {
         }
       }
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
-} 
+}

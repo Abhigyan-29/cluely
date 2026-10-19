@@ -1,4 +1,3 @@
-// ScreenshotHelper.ts
 
 import path from "node:path"
 import fs from "node:fs"
@@ -19,19 +18,17 @@ export class ScreenshotHelper {
   constructor(view: "queue" | "solutions" = "queue") {
     this.view = view
 
-    // Initialize directories
     this.screenshotDir = path.join(app.getPath("userData"), "screenshots")
     this.extraScreenshotDir = path.join(
       app.getPath("userData"),
       "extra_screenshots"
     )
 
-    // Create directories if they don't exist
     if (!fs.existsSync(this.screenshotDir)) {
-      fs.mkdirSync(this.screenshotDir)
+      fs.mkdirSync(this.screenshotDir, { recursive: true })
     }
     if (!fs.existsSync(this.extraScreenshotDir)) {
-      fs.mkdirSync(this.extraScreenshotDir)
+      fs.mkdirSync(this.extraScreenshotDir, { recursive: true })
     }
   }
 
@@ -52,23 +49,23 @@ export class ScreenshotHelper {
   }
 
   public clearQueues(): void {
-    // Clear screenshotQueue
     this.screenshotQueue.forEach((screenshotPath) => {
       fs.unlink(screenshotPath, (err) => {
-        if (err)
+        if (err) {
           console.error(`Error deleting screenshot at ${screenshotPath}:`, err)
+        }
       })
     })
     this.screenshotQueue = []
 
-    // Clear extraScreenshotQueue
     this.extraScreenshotQueue.forEach((screenshotPath) => {
       fs.unlink(screenshotPath, (err) => {
-        if (err)
+        if (err) {
           console.error(
             `Error deleting extra screenshot at ${screenshotPath}:`,
             err
           )
+        }
       })
     })
     this.extraScreenshotQueue = []
@@ -80,17 +77,16 @@ export class ScreenshotHelper {
   ): Promise<string> {
     try {
       hideMainWindow()
-      
-      // Add a small delay to ensure window is hidden
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
-      let screenshotPath = ""
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      let screenshotPath: string
 
       if (this.view === "queue") {
         screenshotPath = path.join(this.screenshotDir, `${uuidv4()}.png`)
         await screenshot({ filename: screenshotPath })
 
         this.screenshotQueue.push(screenshotPath)
+
         if (this.screenshotQueue.length > this.MAX_SCREENSHOTS) {
           const removedPath = this.screenshotQueue.shift()
           if (removedPath) {
@@ -102,10 +98,14 @@ export class ScreenshotHelper {
           }
         }
       } else {
-        screenshotPath = path.join(this.extraScreenshotDir, `${uuidv4()}.png`)
+        screenshotPath = path.join(
+          this.extraScreenshotDir,
+          `${uuidv4()}.png`
+        )
         await screenshot({ filename: screenshotPath })
 
         this.extraScreenshotQueue.push(screenshotPath)
+
         if (this.extraScreenshotQueue.length > this.MAX_SCREENSHOTS) {
           const removedPath = this.extraScreenshotQueue.shift()
           if (removedPath) {
@@ -121,9 +121,11 @@ export class ScreenshotHelper {
       return screenshotPath
     } catch (error) {
       console.error("Error taking screenshot:", error)
-      throw new Error(`Failed to take screenshot: ${error.message}`)
+      const message =
+        error instanceof Error ? error.message : String(error)
+
+      throw new Error(`Failed to take screenshot: ${message}`)
     } finally {
-      // Ensure window is always shown again
       showMainWindow()
     }
   }
@@ -139,23 +141,27 @@ export class ScreenshotHelper {
   }
 
   public async deleteScreenshot(
-    path: string
+    screenshotPath: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await fs.promises.unlink(path)
+      await fs.promises.unlink(screenshotPath)
+
       if (this.view === "queue") {
         this.screenshotQueue = this.screenshotQueue.filter(
-          (filePath) => filePath !== path
+          (filePath) => filePath !== screenshotPath
         )
       } else {
         this.extraScreenshotQueue = this.extraScreenshotQueue.filter(
-          (filePath) => filePath !== path
+          (filePath) => filePath !== screenshotPath
         )
       }
+
       return { success: true }
     } catch (error) {
-      console.error("Error deleting file:", error)
-      return { success: false, error: error.message }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
     }
   }
 }

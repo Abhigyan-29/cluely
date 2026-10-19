@@ -1,12 +1,12 @@
 
 import { BrowserWindow, screen } from "electron"
-import { AppState } from "main"
+import { AppState } from "./main"
 import path from "node:path"
 
 const isDev = process.env.NODE_ENV === "development"
 
 const startUrl = isDev
-  ? "http://localhost:5180"
+  ? "http://127.0.0.1:5180"
   : `file://${path.join(__dirname, "../dist/index.html")}`
 
 export class WindowHelper {
@@ -16,10 +16,10 @@ export class WindowHelper {
   private windowSize: { width: number; height: number } | null = null
   private appState: AppState
 
-  // Initialize with explicit number type and 0 value
+  // Initialize with explicit number type and step value
   private screenWidth: number = 0
   private screenHeight: number = 0
-  private step: number = 0
+  private step: number = 25
   private currentX: number = 0
   private currentY: number = 0
 
@@ -43,8 +43,8 @@ export class WindowHelper {
     )
 
     // Ensure width doesn't exceed max allowed width and height is reasonable
-    const newWidth = Math.min(width + 32, maxAllowedWidth)
-    const newHeight = Math.ceil(height)
+    const newWidth = Math.min(Math.max(width + 32, 350), maxAllowedWidth)
+    const newHeight = Math.max(Math.ceil(height), 40)
 
     // Center the window horizontally if it would go off screen
     const maxX = workArea.width - newWidth
@@ -77,7 +77,7 @@ export class WindowHelper {
       width: 400,
       height: 600,
       minWidth: 300,
-      minHeight: 200,
+      minHeight: 40,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: true,
@@ -98,8 +98,16 @@ export class WindowHelper {
     }
 
     this.mainWindow = new BrowserWindow(windowSettings)
-    // this.mainWindow.webContents.openDevTools()
-    this.mainWindow.setContentProtection(true)
+    
+    // Stealth mode toggle (disabled by default so window renders reliably and appears in taskbar)
+    const enableStealth = process.env.ENABLE_STEALTH === "true"
+    if (enableStealth) {
+      this.mainWindow.setContentProtection(true)
+      this.mainWindow.setSkipTaskbar(true)
+    } else {
+      this.mainWindow.setContentProtection(false)
+      this.mainWindow.setSkipTaskbar(false)
+    }
 
     if (process.platform === "darwin") {
       this.mainWindow.setVisibleOnAllWorkspaces(true, {
@@ -116,8 +124,19 @@ export class WindowHelper {
       // Keep window focusable on Linux for proper interaction
       this.mainWindow.setFocusable(true)
     } 
-    this.mainWindow.setSkipTaskbar(true)
     this.mainWindow.setAlwaysOnTop(true)
+
+    // Retry loading in development if the server is still booting
+    if (isDev) {
+      this.mainWindow.webContents.on("did-fail-load", (event, errorCode, errorDescription) => {
+        console.warn(`[WindowHelper] Failed to load ${startUrl} (${errorDescription}). Retrying in 1s...`)
+        setTimeout(() => {
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.loadURL(startUrl).catch(console.error)
+          }
+        }, 1000)
+      })
+    }
 
     this.mainWindow.loadURL(startUrl).catch((err) => {
       console.error("Failed to load URL:", err)
@@ -126,12 +145,24 @@ export class WindowHelper {
     // Show window after loading URL and center it
     this.mainWindow.once('ready-to-show', () => {
       if (this.mainWindow) {
-        // Center the window first
         this.centerWindow()
         this.mainWindow.show()
         this.mainWindow.focus()
         this.mainWindow.setAlwaysOnTop(true)
+        this.isWindowVisible = true
         console.log("Window is now visible and centered")
+      }
+    })
+
+    // Fallback in case ready-to-show is missed
+    this.mainWindow.webContents.once('did-finish-load', () => {
+      if (this.mainWindow && !this.isWindowVisible) {
+        this.centerWindow()
+        this.mainWindow.show()
+        this.mainWindow.focus()
+        this.mainWindow.setAlwaysOnTop(true)
+        this.isWindowVisible = true
+        console.log("Window shown on did-finish-load")
       }
     })
 
